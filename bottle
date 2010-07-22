@@ -1,0 +1,72 @@
+#!/bin/bash
+
+debug () {
+	echo "$@"
+	"$@"
+}
+
+BOTTLES="$HOME/.bottles"
+WINEVERSIONS="$BOTTLES/.wine"
+
+NAME=bottle
+VERSION=0.01
+USAGE="$0 [cmd] [bottle] <args...>
+
+	create         	Creates a new bottle
+	list           	Show all bottles already created
+	run            	Runs a command within bottle
+	install-version	Download an older version of wine
+"
+
+abort () {
+	echo "$USAGE"
+	exit 1
+}
+
+create () {
+	debug mkdir -pv $PREFIX
+	debug env WINEPREFIX="$WINEPREFIX" wineboot -u
+}
+
+run () {
+	debug source "$WINEPREFIX/bottle-settings"
+	if [ -n "$WINEVERSION" ]; then
+		PATH="$BOTTLES/.wineversions/$WINEVERSION/usr/bin/:$PATH"
+	fi
+	export WINEPREFIX
+	export WINEDEBUG="-all"
+	debug cd "$(dirname "$(winepath -u "$EXE")")"
+	if [ "$#" -gt 0 ]; then
+		debug wine "$@"
+	else
+		debug wine "$EXE" "$@"
+	fi
+}
+
+install_version () {
+	echo "Not yet implemented
+Manually downloaded versions of wine should be extracted under
+$BOTTLES/.wineversions/"
+}
+
+CMD="$1"
+WINEPREFIX="$BOTTLES/$2"
+case "$CMD" in
+	create)
+		shift 2
+		create "$@"
+		;;
+	run)
+		shift 2
+		run "$@"
+		;;
+	list)
+		ls "$BOTTLES"
+		;;
+	-v|--version)
+		echo "$NAME $VERSION"
+		;;
+	*)
+		abort
+		;;
+esac
