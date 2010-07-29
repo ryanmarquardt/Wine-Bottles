@@ -1,12 +1,16 @@
 #!/bin/bash
 
+DEBUG=yes
+
 debug () {
-	echo "$@"
+	[ "$DEBUG" == yes ] && echo "$@" >&2
 	"$@"
 }
 
 BOTTLES="$HOME/.bottles"
-WINEVERSIONS="$BOTTLES/.wine"
+WINEVERSIONS="$BOTTLES/.wineversions"
+
+debug mkdir -p "$WINEVERSIONS"
 
 NAME=bottle
 VERSION=0.01
@@ -15,53 +19,76 @@ USAGE="$0 [cmd] [bottle] <args...>
 	create         	Creates a new bottle
 	list           	Show all bottles already created
 	run            	Runs a command within bottle
-	install-version	Download an older version of wine
+	install-version	Downloads an older version of wine
+	versions        Lists versions of wine available for download
 "
+
+bottle.script() {
+	source "$WINEPREFIX/bottle-settings"
+	echo "#!/bin/bash"
+	if [ -n "$WINEVERSION" ]; then
+		echo "PATH=$WINEVERSIONS/$WINEVERSION/usr/bin/:\$PATH"
+	fi
+	echo export WINEPREFIX=\"$WINEPREFIX\"
+	echo export WINEDEBUG=\"-all\"
+	DIR="$(dirname "$(winepath -u "$EXE")")"
+	echo cd \"$DIR\"
+	echo wine \"$EXE\" \"\$@\"
+}
 
 abort () {
 	echo "$USAGE"
 	exit 1
 }
 
-create () {
-	debug mkdir -pv $PREFIX
+bottle.create () {
 	debug env WINEPREFIX="$WINEPREFIX" wineboot -u
 }
 
-run () {
-	debug source "$WINEPREFIX/bottle-settings"
-	if [ -n "$WINEVERSION" ]; then
-		PATH="$BOTTLES/.wineversions/$WINEVERSION/usr/bin/:$PATH"
-	fi
-	export WINEPREFIX
-	export WINEDEBUG="-all"
-	debug cd "$(dirname "$(winepath -u "$EXE")")"
-	if [ "$#" -gt 0 ]; then
-		debug wine "$@"
-	else
-		debug wine "$EXE" "$@"
-	fi
+bottle.versions () {
+	debug wget -q -O- http://mulx.playonlinux.com/wine/linux-i386/LIST | cut -d';' -f2
 }
 
-install_version () {
-	echo "Not yet implemented
-Manually downloaded versions of wine should be extracted under
-$BOTTLES/.wineversions/"
+depend_wine_version () {
+	bottle.checkversion "$1" || bottle.installwine "$1"
+}
+
+bottle.checkversion () {
+	[ -d "$WINEVERSIONS/$1" ]
+}
+
+bottle.installwine () {
+	debug wget -q http://mulx.playonlinux.com/wine/linux-i386/PlayOnLinux-wine-$1.pol -O- | debug tar -xjP --exclude=files --exclude=playonlinux --transform "s|wineversion|$WINEVERSIONS|"
 }
 
 CMD="$1"
-WINEPREFIX="$BOTTLES/$2"
+if [ -n "$2" ]; then
+	WINEPREFIX="$BOTTLES/$2"
+	source "$WINEPREFIX/bottle-settings"
+fi
 case "$CMD" in
 	create)
 		shift 2
 		create "$@"
 		;;
 	run)
-		shift 2
-		run "$@"
+		shift 1
+		depend_wine_version "$WINEVERSION"
+		bottle.script "$@" | /bin/bash
 		;;
 	list)
 		ls "$BOTTLES"
+		;;
+	script)
+		shift 1
+		bottle.script "$@"
+		;;
+	versions)
+		bottle.versions
+		;;
+	install-version)
+		shift 1
+		bottle.installwine "$@"
 		;;
 	-v|--version)
 		echo "$NAME $VERSION"
