@@ -10,7 +10,7 @@ debug () {
 BOTTLES="$HOME/.bottles"
 WINEVERSIONS="$BOTTLES/.wineversions"
 
-debug mkdir -p "$WINEVERSIONS"
+mkdir -p "$WINEVERSIONS"
 
 NAME=bottle
 VERSION=0.01
@@ -18,9 +18,11 @@ USAGE="$0 [cmd] [bottle] <args...>
 
 	create         	Creates a new bottle
 	list           	Show all bottles already created
-	run            	Runs a command within bottle
+	run            	Runs a command within the bottle
+	script         	Prints the shell script used to run the bottle
+	configure      	Runs winecfg in the bottle
 	install-version	Downloads an older version of wine
-	versions        Lists versions of wine available for download
+	versions       	Lists versions of wine available for download
 "
 
 bottle.script() {
@@ -34,6 +36,15 @@ bottle.script() {
 	DIR="$(dirname "$(winepath -u "$EXE")")"
 	echo cd \"$DIR\"
 	echo wine \"$EXE\" \"\$@\"
+}
+
+bottle.config() {
+	echo "#!/bin/bash"
+	if [ -n "$WINEVERSION" ]; then
+		echo "PATH=$WINEVERSIONS/$WINEVERSION/usr/bin/:\$PATH"
+	fi
+	echo export WINEPREFIX=\"$WINEPREFIX\"
+	echo winecfg
 }
 
 abort () {
@@ -75,6 +86,10 @@ case "$CMD" in
 		shift 1
 		depend_wine_version "$WINEVERSION"
 		bottle.script "$@" | /bin/bash
+		;;
+	configure)
+		shift 1
+		bottle.config | /bin/bash
 		;;
 	list)
 		ls "$BOTTLES"
