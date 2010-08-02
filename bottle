@@ -21,6 +21,7 @@ USAGE="$0 [cmd] [bottle] <args...>
 	run            	Runs a command within the bottle
 	script         	Prints the shell script used to run the bottle
 	configure      	Runs winecfg in the bottle
+	package        	Package a bottle for backup or distribution
 	install-version	Downloads an older version of wine
 	versions       	Lists versions of wine available for download
 "
@@ -45,11 +46,6 @@ bottle.config() {
 	fi
 	echo export WINEPREFIX=\"$WINEPREFIX\"
 	echo winecfg
-}
-
-abort () {
-	echo "$USAGE"
-	exit 1
 }
 
 bottle.create () {
@@ -109,6 +105,7 @@ case "$CMD" in
 		echo "$NAME $VERSION"
 		;;
 	*)
-		abort
+		echo "$USAGE"
+		exit 1
 		;;
 esac
