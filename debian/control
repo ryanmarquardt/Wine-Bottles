@@ -1,0 +1,22 @@
+Source: winebottles
+Section: otherosfs
+Priority: optional
+Maintainer: Ryan Marquardt (orbnauticus) <ryan.marquardt@gmail.com>
+Build-Depends: debhelper (>= 5.0.0)
+Standards-Version: 3.7.3
+
+Package: winebottles
+Architecture: i386 amd64
+Pre-Depends: dpkg (>= 1.14.12ubuntu3)
+Depends: ${misc:Depends}, ${shlibs:Depends}
+Recommends: wine1.2, winetricks
+Homepage: http://github.com/orbnauticus/Wine-Bottles
+Description: Microsoft Windows Compatibility Layer (winebottles)
+ Wine is a compatibility layer for running Windows applications on Linux.
+ Applications are run at full speed without the need of cpu emulation. Wine
+ does not require Microsoft Windows, however it can use native system dll
+ files in place of its own if they are available.
+ .
+ This package includes a shell script that automates maintenance of wine
+ prefixes or "bottles", allowing multiple windows programs to be installed
+ and managed in separate environments.
