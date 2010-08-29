@@ -103,7 +103,7 @@ fi
 case "$CMD" in
 	create)
 		shift 2
-		create "$@"
+		bottle.create "$@"
 		;;
 	run)
 		shift 1
