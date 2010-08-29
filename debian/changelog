@@ -1,3 +1,9 @@
+winebottles (0.1.1) maverick; urgency=low
+
+  * Fixed "create" command
+
+ -- Ryan Marquardt (orbnauticus) <ryan.marquardt@gmail.com>  Sun, 29 Aug 2010 11:24:49 +0900
+
 winebottles (0.1) maverick; urgency=low
 
   * Initial packaging
