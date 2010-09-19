@@ -35,7 +35,7 @@ debbinary () {
 
 ppa () {
 	debsourcediff
-	verbose dput ppa:orbnauticus/orbnauticus winebottles_${VERSION}_source.changes
+	verbose dput "$@" winebottles_${VERSION}_source.changes 
 }
 
 versionbump () {
