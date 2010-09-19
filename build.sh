@@ -2,6 +2,8 @@
 
 VERSION=$(head -n 1 debian/changelog | cut -d\( -f2 | cut -d\) -f1 )
 
+DEBUILD=$(which debuild)
+
 verbose () { echo BUILD.SH "$@" >&2 ; "$@" ; }
 indir () { ( cd "$1" ; shift ; "$@" ) ; }
 
@@ -14,21 +16,26 @@ unpack () {
 	verbose tar -xf wine-bottles.tar.bz2
 }
 
+debuild () {
+	unpack
+	indir dist verbose "$DEBUILD" "$@"
+}
+
 debsource () {
-	indir dist verbose debuild -S -sa
+	debuild -S -sa
 }
 
 debsourcediff () {
-	indir dist verbose debuild -S -sd
+	debuild -S -sd
 }
 
 debbinary () {
-	indir dist verbose debuild
+	debuild
 }
 
 ppa () {
 	debsourcediff
-	verbose dput ppa:ryan-marquardt/ppa winebottles_${VERSION}_source.changes
+	verbose dput ppa:orbnauticus/orbnauticus winebottles_${VERSION}_source.changes
 }
 
 versionbump () {
@@ -38,4 +45,4 @@ versionbump () {
 	dch -v $NEWVERSION
 }
 
-"$1"
+"$@"
