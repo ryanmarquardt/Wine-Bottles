@@ -1,3 +1,9 @@
+winebottles (0.1.2) maverick; urgency=low
+
+  * Added ability to specify environment variables in bottle-settings files
+
+ -- Ryan Marquardt (orbnauticus) <ryan.marquardt@gmail.com>  Sun, 19 Sep 2010 17:55:18 +0900
+
 winebottles (0.1.1) maverick; urgency=low
 
   * Fixed "create" command
