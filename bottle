@@ -43,27 +43,52 @@ NAME=bottle
 VERSION=0.1.1
 USAGE="$0 [cmd] [bottle] <args...>
 
-	create         	Creates a new bottle
-	list           	Show all bottles already created
-	run            	Runs a command within the bottle
-	script         	Prints the shell script used to run the bottle
-	configure      	Runs winecfg in the bottle
-	package        	Package a bottle for backup or distribution
-	install-version	Downloads an older version of wine
-	versions       	Lists versions of wine available for download
+	create          	Creates a new bottle
+	list            	Show all bottles already created
+	run             	Opens the bottle's default program
+	exec            	Runs a command within the bottle (useful for installing)
+	script          	Prints the shell script used to run the bottle
+	configure       	Runs winecfg in the bottle
+	package         	Package a bottle for backup or distribution
+	install-version 	Downloads an older version of wine
+	versions        	Lists versions of wine available for download
 "
+
+bottle.exec() {
+	source "$WINEPREFIX/bottle-settings"
+	if [ -n "$WINEVERSION" ]; then
+		export PATH="$WINEVERSIONS/$WINEVERSION/usr/bin/:$PATH"
+	fi
+	export WINEPREFIX
+	debug "$@"
+}
 
 bottle.script() {
 	source "$WINEPREFIX/bottle-settings"
+	export WINEPREFIX WINEDEBUG
 	echo "#!/bin/bash"
 	if [ -n "$WINEVERSION" ]; then
 		echo "PATH=$WINEVERSIONS/$WINEVERSION/usr/bin/:\$PATH"
 	fi
 	echo export WINEPREFIX=\"$WINEPREFIX\"
 	echo export WINEDEBUG=\"-all\"
-	DIR="$(dirname "$(winepath -u "$EXE")")"
-	echo cd \"$DIR\"
-	echo wine \"$EXE\" \"\$@\"
+	EXE="$(winepath -u "$EXE")"
+	if [ -n "$VARS" ]; then
+		for var in $VARS; do
+			echo export $var=\"${!var}\"
+		done
+	fi
+	if [ -f "$EXE" ]; then
+		DIR="$(dirname "$EXE")"
+		echo cd \"$DIR\"
+		if [ -n "$OPTS" ]; then
+			echo wine \"$EXE\" \"$OPTS\"
+		else
+			echo wine \"$EXE\"
+		fi
+	else
+		echo \"$@\"
+	fi
 }
 
 bottle.config() {
@@ -77,6 +102,7 @@ bottle.config() {
 
 bottle.create () {
 	debug env WINEPREFIX="$WINEPREFIX" wineboot -u
+	debug touch "$WINEPREFIX/bottle-settings"
 }
 
 bottle.versions () {
@@ -104,6 +130,10 @@ case "$CMD" in
 	create)
 		shift 2
 		bottle.create "$@"
+		;;
+	exec)
+		shift 2
+		bottle.exec "$@"
 		;;
 	run)
 		shift 1
