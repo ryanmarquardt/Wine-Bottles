@@ -41,26 +41,38 @@ mkdir -p "$WINEVERSIONS"
 
 NAME=bottle
 VERSION=0.1.2
-USAGE="$0 [cmd] [bottle] <args...>
+USAGE="$0 [options] <bottle-name> <args...>
 
-	create          	Creates a new bottle
-	list            	Show all bottles already created
-	run             	Opens the bottle's default program
-	exec            	Runs a command within the bottle (useful for installing)
-	script          	Prints the shell script used to run the bottle
-	configure       	Runs winecfg in the bottle
-	package         	Package a bottle for backup or distribution
-	install-version 	Downloads an older version of wine
-	versions        	Lists versions of wine available for download
+With no arguments, runs the bottle's default command
+
+	-n --create          	Creates a new bottle
+	-l --list            	Show all bottles already created
+	--script             	Prints the shell script used to run the bottle (for debugging)
+	-c --configure       	Runs winecfg in the bottle
+	-p --package         	Package a bottle for backup or distribution
+	-i --install-version 	Downloads an older version of wine
+	--list-versions      	Lists versions of wine available for download
 "
+
+bottle.package() {
+	cat "$WINEPREFIX/bottle-userdata" | debug tar -T- f "$@"
+}
 
 bottle.exec() {
 	source "$WINEPREFIX/bottle-settings"
 	if [ -n "$WINEVERSION" ]; then
-		export PATH="$WINEVERSIONS/$WINEVERSION/usr/bin/:$PATH"
+		export PATH=\"$WINEVERSIONS/$WINEVERSION/usr/bin/:\$PATH\"
 	fi
 	export WINEPREFIX
 	debug "$@"
+}
+
+bottle.parseEXE () {
+	if [ -z "$EXE" ]; then
+		
+	else
+		
+	fi
 }
 
 bottle.script() {
@@ -68,7 +80,7 @@ bottle.script() {
 	export WINEPREFIX WINEDEBUG
 	echo "#!/bin/bash"
 	if [ -n "$WINEVERSION" ]; then
-		echo "PATH=$WINEVERSIONS/$WINEVERSION/usr/bin/:\$PATH"
+		echo "export PATH=\"$WINEVERSIONS/$WINEVERSION/usr/bin/:\$PATH\""
 	fi
 	echo export WINEPREFIX=\"$WINEPREFIX\"
 	echo export WINEDEBUG=\"-all\"
@@ -94,7 +106,7 @@ bottle.script() {
 bottle.config() {
 	echo "#!/bin/bash"
 	if [ -n "$WINEVERSION" ]; then
-		echo "PATH=$WINEVERSIONS/$WINEVERSION/usr/bin/:\$PATH"
+		echo "export PATH=\"$WINEVERSIONS/$WINEVERSION/usr/bin/:\$PATH\""
 	fi
 	echo export WINEPREFIX=\"$WINEPREFIX\"
 	echo winecfg
@@ -104,65 +116,61 @@ bottle.create () {
 	debug env WINEPREFIX="$WINEPREFIX" wineboot -u
 	debug touch "$WINEPREFIX/bottle-settings"
 }
-
 bottle.versions () {
 	debug wget -q -O- http://mulx.playonlinux.com/wine/linux-i386/LIST | cut -d';' -f2
 }
-
 depend_wine_version () {
 	bottle.checkversion "$1" || bottle.installwine "$1"
 }
-
 bottle.checkversion () {
 	[ -d "$WINEVERSIONS/$1" ]
 }
-
 bottle.installwine () {
 	debug wget -q http://mulx.playonlinux.com/wine/linux-i386/PlayOnLinux-wine-$1.pol -O- | debug tar -xjP --exclude=files --exclude=playonlinux --transform "s|wineversion|$WINEVERSIONS|"
 }
 
-CMD="$1"
+while [ "$#" -gt 1 ]; do
+	ARGUMENT="$1"
+	shift 1
+	case "$ARGUMENT" in
+		--create|-n)
+			bottle.create "$@"
+			exit
+			;;
+		--configure)
+			bottle.script winecfg | /bin/bash
+			;;
+		--list)
+			ls "$BOTTLES"
+			;;
+		--script)
+			bottle.script "$@"
+			;;
+		--versions)
+			bottle.versions
+			;;
+		--install-version)
+			bottle.installwine "$@"
+			;;
+		--package)
+			bottle.package "$@"
+			;;
+		-v|--version)
+			echo $NAME $VERSION
+			;;
+		*)
+			echo "$USAGE"
+			exit 1
+			;;
+		*)
+			depend_wine_version "$WINEVERSION"
+			bottle.script "$@" | /bin/bash
+			;;
+	esac
+done
+
+WINEPREFIX="$BOTTLES/$1"
 if [ -n "$2" ]; then
 	WINEPREFIX="$BOTTLES/$2"
 	source "$WINEPREFIX/bottle-settings"
 fi
-case "$CMD" in
-	create)
-		shift 2
-		bottle.create "$@"
-		;;
-	exec)
-		shift 2
-		bottle.exec "$@"
-		;;
-	run)
-		shift 1
-		depend_wine_version "$WINEVERSION"
-		bottle.script "$@" | /bin/bash
-		;;
-	configure)
-		shift 1
-		bottle.config | /bin/bash
-		;;
-	list)
-		ls "$BOTTLES"
-		;;
-	script)
-		shift 1
-		bottle.script "$@"
-		;;
-	versions)
-		bottle.versions
-		;;
-	install-version)
-		shift 1
-		bottle.installwine "$@"
-		;;
-	-v|--version)
-		echo "$NAME $VERSION"
-		;;
-	*)
-		echo "$USAGE"
-		exit 1
-		;;
-esac
