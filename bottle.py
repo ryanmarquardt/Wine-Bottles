@@ -12,6 +12,26 @@ def winepath(path, prefix=None, wpath=None):
 		env['WINEPREFIX'] = prefix
 	return subprocess.Popen(['winepath', '-u', path], stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env).communicate()[0][:-1]
 
+def winepath(path, prefix=os.path.expanduser('~/.wine'), wpath=None):
+	final = os.path.join(prefix, 'dosdevices')
+	parts = []
+	head, tail = os.path.split(path)
+	while head and tail:
+		parts.insert(0, tail)
+		head, tail = os.path.split(head)
+	parts.insert(0, tail)
+	while parts:
+		dirs = os.listdir(final)
+		p = parts.pop(0)
+		for d in dirs:
+			if d.lower() == p.lower():
+				final = os.path.join(final, d)
+				break
+		else:
+			#Non-existent path
+			return os.path.join(final, p, *parts)
+	return final
+
 def rexec(path, globals0=None):
 	l = {}
 	if globals0 is None:
@@ -49,24 +69,25 @@ class Bottle(object):
 		self.conf_data = rexec(confpath, g)
 		
 	def run(self, *args):
-		args = list(args)
 		print args
 		if not args:
-			args.append('wine')
+			#Run the default command (var EXE) using wine
 			EXE = winepath(self.conf_data['EXE'], self.env['WINEPREFIX'])
-			args.append(EXE)
+			args = ['wine', EXE]
 			path = os.path.join(self.winepath, 'wine')
 		elif args[0] in self.conf_data and hasattr(self.conf_data[args[0]], '__call__'):
+			#Run a user-defined command
 			f = self.conf_data[args[0]]
 			f(*args[1:])
 			return
 		else:
+			#Run whatever is on the command line
 			path = args[0]
 		env = {}
 		env.update(os.environ)
 		env.update(self.env)
 		print 'executing:', ' '.join(map(repr,args))
-		print 'os.execvpe(path, args, env)'
+		os.execvpe(path, args, env)
 
 if __name__=='__main__':
 	import sys
