@@ -65,14 +65,21 @@ class Bottle(object):
 			'run': self.run,
 			'bash': bash,
 			'winepath': lambda x:winepath(x, self.wineprefix),
+			'WINEPREFIX': self.wineprefix,
 		}
-		self.conf_data = rexec(confpath, g)
+		if os.path.exists(confpath):
+			#Read settings only if they exist
+			self.conf_data = rexec(confpath, g)
+		else:
+			#Create settings file if they don't
+			open(confpath, 'wb').close()
+			self.conf_data = {}
 		
 	def run(self, *args):
 		print args
 		if not args:
 			#Run the default command (var EXE) using wine
-			EXE = winepath(self.conf_data['EXE'], self.env['WINEPREFIX'])
+			EXE = winepath(self.conf_data['EXE'], self.wineprefix)
 			args = ['wine', EXE]
 			path = os.path.join(self.winepath, 'wine')
 		elif args[0] in self.conf_data and hasattr(self.conf_data[args[0]], '__call__'):
@@ -91,5 +98,12 @@ class Bottle(object):
 
 if __name__=='__main__':
 	import sys
-	b = Bottle(sys.argv[1])
-	b.run(*sys.argv[2:])
+	basename = os.path.basename(sys.argv[0])
+	if basename in ('bottle', 'bottle.py'):
+		name = sys.argv[1]
+		args = sys.argv[2:]
+	else:
+		name = basename
+		args = sys.argv[1:]
+	b = Bottle(name)
+	b.run(*args)
