@@ -3,6 +3,8 @@
 import os
 import subprocess
 
+import urllib2
+
 VERSION='0.2.0'
 
 def winepath(path, prefix=None, wpath=None):
@@ -140,17 +142,20 @@ class Bottle(object):
 			os.execvpe(path, args, env)
 
 USAGE="""
-	-l --list            	Show all bottles already created
-	--script             	Prints the shell script used to run the bottle (for debugging)
-	-c --configure       	Runs winecfg in the bottle
 	-p --package         	Package a bottle for backup or distribution
 	-i --install-version 	Downloads an older version of wine
-	--list-versions      	Lists versions of wine available for download
 """
 
 class WineVersionManager(object):
 	def __init__(self):
 		pass
+		
+	def install(self, version):
+		pass
+		
+	def list(self):
+		data = urllib2.urlopen('http://mulx.playonlinux.com/wine/linux-i386/LIST')
+		return [line.split(';')[1] for line in data]
 		
 def STUB(*args):
 	print 'STUB:', ' '.join(map(repr,args))
@@ -170,16 +175,19 @@ if __name__=='__main__':
 	parser.add_option('-n', '--create', action='store_const', 
 	 const='create', dest='action',
 	 help="Creates a new bottle")
-	parser.add_option('-c', '--configure', action='callback', callback=STUB,
+	parser.add_option('-c', '--configure', action='store_const',
+	 const='configure', dest='action',
 	 help="Runs winecfg in the bottle")
 	parser.add_option('-p', '--package', action='callback', callback=STUB,
 	 help="Package a bottle for backup or distribution")
-	parser.add_option('-i', '--install-version', action='callback', callback=STUB,
+	parser.add_option('-i', '--install-version', action='store',
+	 dest='newversion', type='string', default='',
 	 help="Download an older version of wine")
 	parser.add_option('-l', '--list', action='store_const',
 	 const='list', dest='action',
 	 help="Show all bottles already created")
-	parser.add_option('--list-versions', action='callback', callback=STUB,
+	parser.add_option('--list-versions', action='store_const',
+	 const='listversions', dest='action',
 	 help="List versions of wine available for download")
 	
 	parser.set_defaults(debug=False, action='run')
@@ -190,6 +198,10 @@ if __name__=='__main__':
 	#Some options don't take a bottle name
 	if parser.values.action == 'list':
 		print '\n'.join(sorted(filter(lambda x:x!='.wineversions', os.listdir(b.path))))
+	elif parser.values.newversion:
+		WineVersionManager().install(parser.values.newversion)
+	elif parser.values.action == 'listversions':
+		print '\n'.join(WineVersionManager().list())
 	else:
 		#Others do
 		basename = os.path.basename(sys.argv[0])
@@ -204,6 +216,8 @@ if __name__=='__main__':
 		b.open(name)
 		if parser.values.action == 'create':
 			b.create()
+		elif parser.values.action == 'configure':
+			b.run('winecfg')
 		elif parser.values.action == 'run':
 			if b.exists():
 				b.run(*args, debug=opts.debug)
