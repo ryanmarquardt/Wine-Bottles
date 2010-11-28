@@ -96,6 +96,10 @@ class Bottle(object):
 		print 'CREATING BOTTLE'
 		touch(self.confpath)
 		self.run('wineboot', '-u')
+			
+	def package(self):
+		tar = ['tar', '-C', self.path, '-cv', name]
+		subprocess.Popen(tar).communicate()
 		
 	def parse_conf(self):
 		self.confpath = os.path.join(self.wineprefix, 'bottle-settings')
@@ -141,18 +145,47 @@ class Bottle(object):
 		if not debug:
 			os.execvpe(path, args, env)
 
-USAGE="""
-	-p --package         	Package a bottle for backup or distribution
-	-i --install-version 	Downloads an older version of wine
-"""
+def ReadData(file, size):
+	buffer = file.read(size)
+	while buffer:
+		yield buffer
+		buffer = file.read(size)
+
+class WorkingDir(object):
+	def __init__(self, path):
+		self.oldpath = os.getcwd()
+		self.newpath = path
+		
+	def __enter__(self):
+		os.chdir(self.newpath)
+		
+	def __exit__(self, exc_type, exc_value, traceback):
+		os.chdir(self.oldpath)
 
 class WineVersionManager(object):
-	def __init__(self):
-		pass
+	def __init__(self, location):
+		self.bottles = location
+		self.location = os.path.join(location, '.wineversions')
 		
 	def install(self, version):
-		pass
-		
+		with WorkingDir(self.location):
+			if not os.path.exists('wine-%s.tar.bz2' % version):
+				urltemplate = 'http://mulx.playonlinux.com/wine/linux-i386/PlayOnLinux-wine-%s.pol'
+				print 'download', urltemplate % version
+				try:
+					data = urllib2.urlopen(urltemplate % version)
+					with open('.wine-%s.tar.bz2.part' % version, 'wb') as dest:
+						for d in ReadData(data, 1024):
+							dest.write(d)
+				finally:
+					print 'download complete'
+					os.rename('.wine-%s.tar.bz2.part' % version, 
+					          'wine-%s.tar.bz2' % version)
+			untar = ['tar', '-xvjp', '--exclude=files', '--exclude=playonlinux',
+			 '--transform', 's|wineversion|.|',
+			 '-f', 'wine-%s.tar.bz2' % version]
+			subprocess.Popen(untar).communicate()
+
 	def list(self):
 		data = urllib2.urlopen('http://mulx.playonlinux.com/wine/linux-i386/LIST')
 		return [line.split(';')[1] for line in data]
@@ -178,11 +211,12 @@ if __name__=='__main__':
 	parser.add_option('-c', '--configure', action='store_const',
 	 const='configure', dest='action',
 	 help="Runs winecfg in the bottle")
-	parser.add_option('-p', '--package', action='callback', callback=STUB,
+	parser.add_option('-p', '--package', action='store_true',
+	 dest='package', default=False, metavar='dest',
 	 help="Package a bottle for backup or distribution")
 	parser.add_option('-i', '--install-version', action='store',
-	 dest='newversion', type='string', default='',
-	 help="Download an older version of wine")
+	 dest='newversion', type='string', default='', metavar='VER',
+	 help="Download an version VER of wine")
 	parser.add_option('-l', '--list', action='store_const',
 	 const='list', dest='action',
 	 help="Show all bottles already created")
@@ -199,9 +233,9 @@ if __name__=='__main__':
 	if parser.values.action == 'list':
 		print '\n'.join(sorted(filter(lambda x:x!='.wineversions', os.listdir(b.path))))
 	elif parser.values.newversion:
-		WineVersionManager().install(parser.values.newversion)
+		WineVersionManager(b.path).install(parser.values.newversion)
 	elif parser.values.action == 'listversions':
-		print '\n'.join(WineVersionManager().list())
+		print '\n'.join(WineVersionManager(b.path).list())
 	else:
 		#Others do
 		basename = os.path.basename(sys.argv[0])
@@ -218,6 +252,8 @@ if __name__=='__main__':
 			b.create()
 		elif parser.values.action == 'configure':
 			b.run('winecfg')
+		elif parser.values.package:
+			b.package()
 		elif parser.values.action == 'run':
 			if b.exists():
 				b.run(*args, debug=opts.debug)
