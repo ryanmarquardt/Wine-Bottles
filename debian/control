@@ -2,13 +2,17 @@ Source: winebottles
 Section: otherosfs
 Priority: optional
 Maintainer: Ryan Marquardt (orbnauticus) <ryan.marquardt@gmail.com>
-Build-Depends: debhelper (>= 5.0.0)
-Standards-Version: 3.7.3
+Build-Depends: cdbs (>= 0.4.62), debhelper (>= 7.4), python (>=2.6), python-support
+XS-Python-Version: >= 2.4
+Vcs-Git: git://github.com/orbnauticus/WineBottles.git
+Vcs-Browser: git://github.com/orbnauticus/WineBottles
+Standards-Version: 3.8.4
+Homepage: git://github.com/orbnauticus/WineBottles
 
 Package: winebottles
 Architecture: i386 amd64
 Pre-Depends: dpkg (>= 1.14.12ubuntu3)
-Depends: ${misc:Depends}, ${shlibs:Depends}
+Depends: ${misc:Depends}, ${python:Depends}
 Recommends: wine1.2, winetricks
 Homepage: http://github.com/orbnauticus/Wine-Bottles
 Description: Microsoft Windows Compatibility Layer (winebottles)
@@ -17,6 +21,6 @@ Description: Microsoft Windows Compatibility Layer (winebottles)
  does not require Microsoft Windows, however it can use native system dll
  files in place of its own if they are available.
  .
- This package includes a shell script that automates maintenance of wine
- prefixes or "bottles", allowing multiple windows programs to be installed
- and managed in separate environments.
+ This package includes a program that automates maintenance of wine prefixes or
+ "bottles", allowing multiple windows programs to be installed and managed in
+ separate environments.

@@ -1,3 +1,9 @@
+winebottles (0.2.0) maverick; urgency=low
+
+  * Ported script over to Python for more flexibility. 
+
+ -- Ryan Marquardt (orbnauticus) <ryan.marquardt@gmail.com>  Sun, 28 Nov 2010 21:40:45 +0900
+
 winebottles (0.1.2) maverick; urgency=low
 
   * Added ability to specify environment variables in bottle-settings files
