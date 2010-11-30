@@ -113,6 +113,7 @@ class Bottle(object):
 		self.confpath = os.path.join(self.wineprefix, 'bottle-settings')
 		g = {
 			'run': self.run,
+			'execute': self.execute,
 			'bash': bash,
 			'windowspath': lambda x:WinePath(x, self.wineprefix).toWindows(),
 			'unixpath': lambda x:WinePath(x, self.wineprefix).toUnix(),
@@ -128,8 +129,7 @@ class Bottle(object):
 			for var in self.conf_data['VARS']:
 				self.env[var] = self.conf_data[var]
 		
-	def run(self, *args, **kwargs):
-		debug=kwargs.get('debug', False)
+	def get_environment(self, *args, **kwargs):
 		print args
 		##TODO: Check if version is installed and download if necessary
 		if not args:
@@ -150,9 +150,21 @@ class Bottle(object):
 		env = {}
 		env.update(os.environ)
 		env.update(self.env)
+		return path, args, env
+		
+	def execute(self, *args, **kwargs):
+		debug=kwargs.get('debug', False)
+		path, args, env = self.get_environment(*args, **kwargs)
 		print 'executing:', ' '.join(map(repr,args))
 		if not debug:
 			os.execvpe(path, args, env)
+			
+	def run(self, *args, **kwargs):
+		debug=kwargs.get('debug', False)
+		path, args, env = self.get_environment(*args, **kwargs)
+		print 'running:', ' '.join(map(repr,args))
+		if not debug:
+			return subprocess.Popen(args, executable=path, env=env).wait()
 
 class WineVersionManager(object):
 	def __init__(self, location):
@@ -237,7 +249,7 @@ if __name__=='__main__':
 			b.package()
 		elif parser.values.action == 'run':
 			if b.exists():
-				b.run(*args, debug=opts.debug)
+				b.execute(*args, debug=opts.debug)
 			else:
 				raise Exception('Bottle %r not found' % name)
 		else:
