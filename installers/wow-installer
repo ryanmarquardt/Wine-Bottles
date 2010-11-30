@@ -1,0 +1,23 @@
+#!/usr/bin/env python
+
+from bottle import *
+
+install = 'https://us.battle.net/account/downloads/WoW-4.0.0-WOW-enUS-Installer.exe'
+icon = 'http://kde-files.org/CONTENT/content-files/41569-wow-icon-scalable.svg'
+bottle_settings = '''
+EXE="C:/Program Files/World of Warcraft/Wow.exe"
+
+def install_addon(path):
+	bash('unzip', path, '-d', unixpath('c:/Program Files/World of Warcraft/Interface/AddOns'))
+
+def launcher():
+	execute('wine', "C:/Program Files/World of Warcraft/Launcher.exe")
+'''
+
+with Installer('worldofwarcraft') as wow:
+	wow.download(install, 'WoW-Installer.exe')
+	wow.run('WoW-Installer.exe')
+	wow.settings(bottle_settings)
+	wow.download(icon, 'wow.png')
+	wow.desktop('World of Warcraft', 'wow.png', categories='Application;Game;')
+	wow.desktop('World of Warcraft Launcher', 'wow.png', exe='launcher', categories='Application;Game;')
