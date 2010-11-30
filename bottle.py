@@ -90,6 +90,7 @@ class Bottle(object):
 		self.path = os.path.expanduser(bottlepath)
 		
 	def open(self, name):
+		self.name = name
 		self.wineprefix = os.path.join(self.path, name)
 		self.env = {}
 		self.env['WINEPREFIX'] = self.wineprefix
@@ -183,3 +184,34 @@ class WineVersionManager(object):
 	def list(self):
 		data = urllib2.urlopen('http://mulx.playonlinux.com/wine/linux-i386/LIST')
 		return [line.split(';')[1] for line in data]
+
+class Installer(bottle, WorkingDir):
+	def __init__(self, name):
+		bottle.__init__(self)
+		bottle.open(self, name)
+		bottle.create(self)
+		WorkingDir.__init__(self, self.wineprefix)
+	
+	def download(self, url, dest):
+		download(url, dest)
+			
+	def settings(self, data):
+		with open(os.path.join(self.wineprefix, 'bottle-settings'), 'wb') as bs:
+			bs.write(data)
+			
+	def desktop(self, title, icon, exe=None, categories='Application;'):
+		if exe:
+			exe = ' '.join([self.name, exe])
+		else:
+			exe = self.name
+		template = '''[Desktop Entry]
+Encoding=UTF-8
+Name=%s
+Exec=bottle %s
+Icon=%s
+Terminal=false
+Type=Application
+Categories=%s
+StartupNotify=false
+''' % (title, exe, os.path.abspath(icon), categories)
+		open('%s.desktop' % self.name).write(template)
