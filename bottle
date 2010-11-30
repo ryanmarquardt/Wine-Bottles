@@ -7,13 +7,47 @@ import urllib2
 
 VERSION='0.2.0'
 
-def winepath(path, prefix=None, wpath=None):
-	env = os.environ
-	if wpath:
-		env['PATH'] = ':'.join([wpath, env['PATH']])
-	if prefix:
-		env['WINEPREFIX'] = prefix
-	return subprocess.Popen(['winepath', '-u', path], stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env).communicate()[0][:-1]
+def rexec(path, globals0=None):
+	l = {}
+	if globals0 is None:
+		globals0 = globals()
+	execfile(path, globals0, l)
+	return l
+
+def bash(*args):
+	subprocess.Popen(['bash'], stdin=subprocess.PIPE).communicate(' '.join(map(repr,args)))
+	
+def touch(path):
+	head, tail = os.path.split(path)
+	if os.path.exists(head) and not os.path.isdir(head):
+		raise Exception("Oops, somebody's not a folder! %r" % head)
+	else:
+		os.makedirs(head)
+	open(path, 'wb').close()
+
+def download(url, dst):
+	size = 1024
+	partname = '.%s.part' % dst
+	try:
+		data = urllib2.urlopen(url)
+		with open(partname, 'wb') as dest:
+			buffer = data.read(size)
+			while buffer:
+				dest.write(d)
+				buffer = data.read(size)
+	finally:
+		os.rename(partname, dst)
+
+class WorkingDir(object):
+	def __init__(self, path):
+		self.oldpath = os.getcwd()
+		self.newpath = path
+		
+	def __enter__(self):
+		os.chdir(self.newpath)
+		
+	def __exit__(self, exc_type, exc_value, traceback):
+		os.chdir(self.oldpath)
 
 class WinePath(str):
 	def __new__(self, path, prefix=None):
@@ -52,32 +86,6 @@ class WinePath(str):
 				return os.path.join(letter, path[len(drives[letter]):])
 		else:
 			return path
-
-#print WinePath('c:/Program Files/Microsoft Office', '/home/ryan/.bottles/office').toUnix()
-#print WinePath('/home/ryan/Documents/doc.doc', '/home/ryan/.bottles/office').toWindows()
-
-def winepath(path, prefix=os.path.expanduser('~/.wine'), wpath=None):
-	pass
-	
-winepath = lambda path,prefix:WinePath(path,prefix).toUnix()
-
-def rexec(path, globals0=None):
-	l = {}
-	if globals0 is None:
-		globals0 = globals()
-	execfile(path, globals0, l)
-	return l
-
-def bash(*args):
-	subprocess.Popen(['bash'], stdin=subprocess.PIPE).communicate(' '.join(map(repr,args)))
-	
-def touch(path):
-	head, tail = os.path.split(path)
-	if os.path.exists(head) and not os.path.isdir(head):
-		raise Exception("Oops, somebody's not a folder! %r" % head)
-	else:
-		os.makedirs(head)
-	open(path, 'wb').close()
 
 class Bottle(object):
 	def __init__(self, bottlepath='~/.bottles'):
@@ -128,7 +136,7 @@ class Bottle(object):
 			#Run the default command (var EXE) using wine
 			if 'EXE' not in self.conf_data:
 				raise Exception('No default program has been specified')
-			EXE = winepath(self.conf_data['EXE'], self.wineprefix)
+			EXE = WinePath(self.conf_data['EXE'], self.wineprefix).toUnix()
 			args = ['wine', EXE]
 			path = os.path.join(self.winepath, 'wine')
 		elif args[0] in self.conf_data and hasattr(self.conf_data[args[0]], '__call__'):
@@ -146,23 +154,6 @@ class Bottle(object):
 		if not debug:
 			os.execvpe(path, args, env)
 
-def ReadData(file, size):
-	buffer = file.read(size)
-	while buffer:
-		yield buffer
-		buffer = file.read(size)
-
-class WorkingDir(object):
-	def __init__(self, path):
-		self.oldpath = os.getcwd()
-		self.newpath = path
-		
-	def __enter__(self):
-		os.chdir(self.newpath)
-		
-	def __exit__(self, exc_type, exc_value, traceback):
-		os.chdir(self.oldpath)
-
 class WineVersionManager(object):
 	def __init__(self, location):
 		self.bottles = location
@@ -173,15 +164,7 @@ class WineVersionManager(object):
 			if not os.path.exists('wine-%s.tar.bz2' % version):
 				urltemplate = 'http://mulx.playonlinux.com/wine/linux-i386/PlayOnLinux-wine-%s.pol'
 				print 'download', urltemplate % version
-				try:
-					data = urllib2.urlopen(urltemplate % version)
-					with open('.wine-%s.tar.bz2.part' % version, 'wb') as dest:
-						for d in ReadData(data, 1024):
-							dest.write(d)
-				finally:
-					print 'download complete'
-					os.rename('.wine-%s.tar.bz2.part' % version, 
-					          'wine-%s.tar.bz2' % version)
+				download(urltemplate % version)
 			untar = ['tar', '-xvjp', '--exclude=files', '--exclude=playonlinux',
 			 '--transform', 's|wineversion|.|',
 			 '-f', 'wine-%s.tar.bz2' % version]
@@ -190,9 +173,6 @@ class WineVersionManager(object):
 	def list(self):
 		data = urllib2.urlopen('http://mulx.playonlinux.com/wine/linux-i386/LIST')
 		return [line.split(';')[1] for line in data]
-		
-def STUB(*args):
-	print 'STUB:', ' '.join(map(repr,args))
 
 if __name__=='__main__':
 	import sys
