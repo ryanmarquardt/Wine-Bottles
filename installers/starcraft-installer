@@ -1,0 +1,39 @@
+#!/usr/bin/env python
+
+from bottle import *
+import sys
+
+bottle_settings = '''
+WINEVERSION='0.9.14'
+EXE="C:/Program Files/Starcraft/StarCraft.exe"
+
+def update():
+	import os
+	import re
+	
+	avail = download('http://ftp.blizzard.com/pub/broodwar/patches/PC/')
+	patches = ['http://ftp.blizzard.com' + match.group(1) for match in re.finditer('<A HREF="(.*?)">', avail) if match.group(1).endswith('.exe')]
+	latest = sorted(patches, key=lambda x:x.replace('_','-'))[-1]
+	name = os.path.split(latest)[1]
+	
+	with WorkingDir(WINEPREFIX):
+		if name not in os.listdir('.'):
+			print 'Getting patch', name
+			download(latest, name)
+			print 'Applying patch'
+			run('wine', name)
+		else:
+			print 'Already at the latest version:', name
+'''
+
+starcraft = os.path.abspath(sys.argv[1])
+broodwar = os.path.abspath(sys.argv[2])
+with Installer('starcraft') as sc:
+	assert len(sys.argv) >= 3
+	sc.run(starcraft)
+	sc.copy(starcraft, WinePath('c:/Program Files/Starcraft/Starcraft.mpq').toUnix())
+	sc.run(broodwar)
+	sc.copy(broodwar, WinePath('c:/Program Files/Starcraft/Broodwar.mpq').toUnix())
+	sc.settings(bottle_settings)
+	sc.extractIco(WinePath('c:/Program Files/Starcraft/StarCraft.exe').toUnix(), 'starcraft.ico', type='group_icon', name='102')
+	sc.desktop('Starcraft: Brood War', 'starcraft.ico', categories='Application;Game;')
