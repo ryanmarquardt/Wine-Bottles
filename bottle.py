@@ -23,18 +23,21 @@ def touch(path):
 		os.makedirs(head)
 	open(path, 'wb').close()
 
-def download(url, dst):
-	size = 1024
-	partname = '.%s.part' % dst
-	try:
-		data = urllib2.urlopen(url)
-		with open(partname, 'wb') as dest:
-			buffer = data.read(size)
-			while buffer:
-				dest.write(d)
+def download(url, dst=None):
+	if dst:
+		size = 1024
+		partname = '.%s.part' % dst
+		try:
+			data = urllib2.urlopen(url)
+			with open(partname, 'wb') as dest:
 				buffer = data.read(size)
-	finally:
-		os.rename(partname, dst)
+				while buffer:
+					dest.write(d)
+					buffer = data.read(size)
+		finally:
+			os.rename(partname, dst)
+	else:
+		return urllib2.urlopen(url).read()
 
 class WorkingDir(object):
 	def __init__(self, path):
@@ -117,6 +120,8 @@ class Bottle(object):
 			'windowspath': lambda x:WinePath(x, self.wineprefix).toWindows(),
 			'unixpath': lambda x:WinePath(x, self.wineprefix).toUnix(),
 			'WINEPREFIX': self.wineprefix,
+			'download': download,
+			'WorkingDir': WorkingDir,
 		}
 		self.conf_data = rexec(self.confpath, g) if os.path.exists(self.confpath) else {}
 		if 'WINEVERSION' in self.conf_data:
@@ -153,17 +158,21 @@ class Bottle(object):
 		
 	def execute(self, *args, **kwargs):
 		debug=kwargs.get('debug', False)
-		path, args, env = self.get_environment(*args, **kwargs)
-		print 'executing:', ' '.join(map(repr,args))
-		if not debug:
-			os.execvpe(path, args, env)
+		data = self.get_environment(*args, **kwargs)
+		if data:
+			path, args, env = data
+			print 'executing:', ' '.join(map(repr,args))
+			if not debug:
+				os.execvpe(path, args, env)
 			
 	def run(self, *args, **kwargs):
 		debug=kwargs.get('debug', False)
-		path, args, env = self.get_environment(*args, **kwargs)
-		print 'running:', ' '.join(map(repr,args))
-		if not debug:
-			return subprocess.Popen(args, executable=path, env=env).wait()
+		data = self.get_environment(*args, **kwargs)
+		if data:
+			path, args, env = data
+			print 'running:', ' '.join(map(repr,args))
+			if not debug:
+				return subprocess.Popen(args, executable=path, env=env).wait()
 
 class WineVersionManager(object):
 	def __init__(self, location):
@@ -185,7 +194,7 @@ class WineVersionManager(object):
 		data = urllib2.urlopen('http://mulx.playonlinux.com/wine/linux-i386/LIST')
 		return [line.split(';')[1] for line in data]
 
-class Installer(bottle, WorkingDir):
+class Installer(Bottle, WorkingDir):
 	def __init__(self, name):
 		bottle.__init__(self)
 		bottle.open(self, name)
@@ -199,6 +208,12 @@ class Installer(bottle, WorkingDir):
 		with open(os.path.join(self.wineprefix, 'bottle-settings'), 'wb') as bs:
 			bs.write(data)
 			
+	def extractIco(self, exe, ico, type='group_icon', name=None):
+		args = ['wrestool', '-x', exe, '-o', ico, '--type', type]
+		if name:
+			args.extend(['--name', name])
+		subprocess.Popen(args).wait()
+	
 	def desktop(self, title, icon, exe=None, categories='Application;'):
 		if exe:
 			exe = ' '.join([self.name, exe])
