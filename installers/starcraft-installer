@@ -26,14 +26,19 @@ def update():
 			print 'Already at the latest version:', name
 '''
 
-starcraft = os.path.abspath(sys.argv[1])
-broodwar = os.path.abspath(sys.argv[2])
-with Installer('starcraft') as sc:
-	assert len(sys.argv) >= 3
-	sc.run(starcraft)
-	sc.copy(starcraft, WinePath('c:/Program Files/Starcraft/Starcraft.mpq').toUnix())
-	sc.run(broodwar)
-	sc.copy(broodwar, WinePath('c:/Program Files/Starcraft/Broodwar.mpq').toUnix())
-	sc.settings(bottle_settings)
-	sc.extractIco(WinePath('c:/Program Files/Starcraft/StarCraft.exe').toUnix(), 'starcraft.ico', type='group_icon', name='102')
-	sc.desktop('Starcraft: Brood War', 'starcraft.ico', categories='Application;Game;')
+sc = Installer('starcraft')
+sc.settings(bottle_settings)
+
+starcraft = sc.AddInstallSource('starcraft-setup.exe', 'Setup.exe from the Starcraft CD')
+broodwar = sc.AddInstallSource('broodwar-setup.exe', 'Setup.exe from the Brood War CD')
+
+sc.AddCommand('run', starcraft)
+sc.AddCommand('copy', starcraft, WinePath('c:/Program Files/Starcraft/Starcraft.mpq').toUnix())
+sc.AddCommand('run', broodwar)
+sc.AddCommand('copy', broodwar, WinePath('c:/Program Files/Starcraft/Broodwar.mpq').toUnix())
+sc.AddCommand('run','update')
+
+sc.AddIco('starcraft.ico', exe='c:/Program Files/Starcraft/StarCraft.exe', name='102')
+sc.AddDesktop('Starcraft: Brood War', 'starcraft.ico', categories='Application;Game;')
+
+sc.Go(sys.argv)

@@ -9,7 +9,7 @@ if __name__=='__main__':
 	import optparse
 	
 	parser = optparse.OptionParser(
-		usage = "bottle.py [options] <bottle-name> <args...>",
+		usage = "bottle [options] <bottle-name> <args...>",
 		version = "%%prog %s" % VERSION,
 		description = "With no arguments, runs the bottle's default command",
 	)

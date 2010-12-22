@@ -14,10 +14,10 @@ def launcher():
 	execute('wine', "C:/Program Files/World of Warcraft/Launcher.exe")
 '''
 
-with Installer('worldofwarcraft') as wow:
-	wow.download(install, 'WoW-Installer.exe')
-	wow.run('WoW-Installer.exe')
-	wow.settings(bottle_settings)
-	wow.download(icon, 'wow.png')
-	wow.desktop('World of Warcraft', 'wow.png', categories='Application;Game;')
-	wow.desktop('World of Warcraft Launcher', 'wow.png', exe='launcher', categories='Application;Game;')
+wow = Installer('worldofwarcraft'):
+wow.AddInstallSource('WoW-Installer.exe', url=install)
+wow.AddCommand('WoW-Installer.exe')
+wow.settings(bottle_settings)
+wow.AddIco('wow.png', url=icon)
+wow.AddDesktop('World of Warcraft', 'wow.png', categories='Application;Game;')
+wow.AddDesktop('World of Warcraft Launcher', 'wow.png', exe='launcher', categories='Application;Game;')
