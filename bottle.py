@@ -136,6 +136,7 @@ class Bottle(object):
 	def get_environment(self, *args, **kwargs):
 		print args
 		##TODO: Check if version is installed and download if necessary
+		cwd = kwargs.get('cwd', '.')
 		if not args:
 			#Run the default command (var EXE) using wine
 			if 'EXE' not in self.conf_data:
@@ -143,6 +144,8 @@ class Bottle(object):
 			EXE = WinePath(self.conf_data['EXE'], self.wineprefix).toUnix()
 			args = ['wine', EXE]
 			path = os.path.join(self.winepath, 'wine')
+			if self.conf_data['CHDIR']:
+				cwd = os.path.split(EXE)[0]
 		elif args[0] in self.conf_data and hasattr(self.conf_data[args[0]], '__call__'):
 			#Run a user-defined command
 			f = self.conf_data[args[0]]
@@ -154,25 +157,28 @@ class Bottle(object):
 		env = {}
 		env.update(os.environ)
 		env.update(self.env)
-		return path, args, env
+		return path, args, env, cwd
 		
 	def execute(self, *args, **kwargs):
 		debug=kwargs.get('debug', False)
 		data = self.get_environment(*args, **kwargs)
 		if data:
-			path, args, env = data
+			path, args, env, cwd = data
 			print 'executing:', ' '.join(map(repr,args))
+			print 'in dir', cwd
 			if not debug:
+				os.chdir(cwd)
 				os.execvpe(path, args, env)
 			
 	def run(self, *args, **kwargs):
 		debug=kwargs.get('debug', False)
 		data = self.get_environment(*args, **kwargs)
 		if data:
-			path, args, env = data
+			path, args, env, cwd = data
 			print 'running:', ' '.join(map(repr,args))
+			print 'in dir', cwd
 			if not debug:
-				return subprocess.Popen(args, executable=path, env=env).wait()
+				return subprocess.Popen(args, executable=path, env=env, cwd=cwd).wait()
 
 class WineVersionManager(object):
 	def __init__(self, location):
