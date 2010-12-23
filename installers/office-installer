@@ -1,0 +1,48 @@
+#!/usr/bin/env python
+
+from bottle import *
+
+bottle_settings = '''
+def word(*args):
+	args = [windowspath(a) for a in args]
+	run('wine', "C:/Program Files/Microsoft Office/OFFICE11/WINWORD.EXE", *args)
+
+def excel(*args):
+	args = [windowspath(a) for a in args]
+	run('wine', "c:/Program Files/Microsoft Office/OFFICE11/EXCEL.EXE", *args)
+
+def powerpoint(*args):
+	args = [windowspath(a) for a in args]
+	run('wine', "c:/Program Files/Microsoft Office/OFFICE11/POWERPNT.EXE", *args)
+'''
+
+WORDPATH='C:/Program Files/Microsoft Office/OFFICE11/WINWORD.EXE'
+EXCELPATH='C:/Program Files/Microsoft Office/OFFICE11/EXCEL.EXE'
+PPOINTPATH='C:/Program Files/Microsoft Office/OFFICE11/POWERPNT.EXE'
+
+office = Installer('office')
+
+office.AddInstallSource('setup.exe', 'Setup.exe on the main CD')
+
+office.settings(bottle_settings)
+office.AddIco('word.ico', exe=WORDPATH, name='1')
+office.AddIco('word-doc.ico', exe=WORDPATH, name='2')
+office.AddIco('excel.ico', exe=EXCELPATH, name='257')
+office.AddIco('excel-doc.ico', exe=EXCELPATH, name='258')
+office.AddIco('ppoint.ico', exe=PPOINTPATH, name='1300')
+office.AddIco('ppoint-doc.ico', exe=PPOINTPATH, name='1301')
+
+office.AddDesktop('Microsoft Word', 'word.ico', 'word',
+ categories='Application;Office;')
+office.AddDesktop('Microsoft Word', 'word-doc.ico', 'word %f',
+ mimetype='application/msword', nodisplay='true', startupnotify='true')
+office.AddDesktop('Microsoft Excel', 'excel.ico', 'excel',
+ categories='Application;Office;')
+office.AddDesktop('Microsoft Excel', 'excel-doc.ico', 'excel %f',
+ mimetype='application/vnd.ms-excel', nodisplay='true', startupnotify='true')
+office.AddDesktop('Microsoft Powerpoint', 'ppoint.ico', 'powerpoint',
+ categories='Application;Office;')
+office.AddDesktop('Microsoft Powerpoint', 'ppoint-doc.ico', 'powerpoint %f',
+ mimetype='application/vnd.ms-powerpoint', nodisplay='true', startupnotify='true')
+	
+office.Go(sys.argv)
