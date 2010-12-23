@@ -32,6 +32,8 @@ class Installer(object):
 		download(url, dest)
 			
 	def settings(self, data):
+		#TODO
+		pass
 			
 	def extractIco(self, exe, ico, type='group_icon', name=None):
 		args = ['wrestool', '-x', exe, '-o', ico, '--type', type]
@@ -85,67 +87,68 @@ will be prompted for.''',
 		if parser.values.desktop:
 			self.CreateDesktops(parser.values.desktop)
 		if parser.values.settings:
-			self.
-	
-	#Some options don't take a bottle name
-	if parser.values.action == 'list':
-		print '\n'.join(sorted(filter(lambda x:x!='.wineversions', os.listdir(b.path))))
-	elif parser.values.newversion:
-		WineVersionManager(b.path).install(parser.values.newversion)
-	elif parser.values.action == 'listversions':
-		print '\n'.join(WineVersionManager(b.path).list())
-	else:
-		#Others do
-		basename = os.path.basename(sys.argv[0])
-		if basename in ('bottle', 'bottle.py'):
-			if len(args) == 0:
-				parser.print_help()
-				exit(0)
-			name = args.pop(0)
+			#self.
+			pass
+		
+		#Some options don't take a bottle name
+		if parser.values.action == 'list':
+			print '\n'.join(sorted(filter(lambda x:x!='.wineversions', os.listdir(b.path))))
+		elif parser.values.newversion:
+			WineVersionManager(b.path).install(parser.values.newversion)
+		elif parser.values.action == 'listversions':
+			print '\n'.join(WineVersionManager(b.path).list())
 		else:
-			name = basename
-		print name, args
-		b.open(name)
-		if parser.values.action == 'create':
-			b.create()
-		elif parser.values.action == 'configure':
-			b.run('winecfg')
-		elif parser.values.package:
-			b.package()
-		elif parser.values.action == 'run':
-			if b.exists():
-				b.execute(*args, debug=opts.debug)
+			#Others do
+			basename = os.path.basename(sys.argv[0])
+			if basename in ('bottle', 'bottle.py'):
+				if len(args) == 0:
+					parser.print_help()
+					exit(0)
+				name = args.pop(0)
 			else:
-				raise Exception('Bottle %r not found' % name)
-		else:
-			raise Exception('Unexpected value for parser.values.action: %r' % parser.values.action)
-
-		parser = optparse.OptionParser(
-			usage="
-		)
-		
-		
-		WriteSettings = True
-		RunInstall = True
-		ExtractIcos = True
-		CreateDesktops = True
-		if RunInstall:
-			for cmd,args,kwargs in self.install:
-				print cmd, args, kwargs
-				#self.run(cmd, *args, **kwargs)
-		if ExtractIcos:
-			for key in self.icos:
-				file,exe,name = self.icos[key]
-				if file:
-					self.icos[key] = file
+				name = basename
+			print name, args
+			b.open(name)
+			if parser.values.action == 'create':
+				b.create()
+			elif parser.values.action == 'configure':
+				b.run('winecfg')
+			elif parser.values.package:
+				b.package()
+			elif parser.values.action == 'run':
+				if b.exists():
+					b.execute(*args, debug=opts.debug)
 				else:
-					subprocess.Popen(['wrestool', '-x', exe, '--type=group_icon', '--name', name, '-o', key]).wait()
-					self.icos[key] = key
-		if WriteSettings:
-			with open(os.path.join(self.wineprefix, 'bottle-settings'), 'wb') as bs:
-				bs.write(data)
-		if CreateDesktops:
-			self.WriteDesktop()
-			for desktop in self.desktops:
-				
-	
+					raise Exception('Bottle %r not found' % name)
+			else:
+				raise Exception('Unexpected value for parser.values.action: %r' % parser.values.action)
+			
+			parser = optparse.OptionParser(
+				usage=""
+			)
+			
+			WriteSettings = True
+			RunInstall = True
+			ExtractIcos = True
+			CreateDesktops = True
+			if RunInstall:
+				for cmd,args,kwargs in self.install:
+					print cmd, args, kwargs
+					#self.run(cmd, *args, **kwargs)
+			if ExtractIcos:
+				for key in self.icos:
+					file,exe,name = self.icos[key]
+					if file:
+						self.icos[key] = file
+					else:
+						subprocess.Popen(['wrestool', '-x', exe, '--type=group_icon', '--name', name, '-o', key]).wait()
+						self.icos[key] = key
+			if WriteSettings:
+				with open(os.path.join(self.wineprefix, 'bottle-settings'), 'wb') as bs:
+					bs.write(data)
+			if CreateDesktops:
+				self.WriteDesktop()
+				for desktop in self.desktops:
+					#TODO
+					pass
+		
