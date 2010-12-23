@@ -1,3 +1,9 @@
+winebottles (0.2.2) maverick; urgency=low
+
+  * Bug fixes that got by the last release
+
+ -- Ryan Marquardt (orbnauticus) <ryan.marquardt@gmail.com>  Fri, 24 Dec 2010 01:30:35 +0900
+
 winebottles (0.2.1) maverick; urgency=low
 
   * Added config option CHDIR for programs that need to run in their installation directory.

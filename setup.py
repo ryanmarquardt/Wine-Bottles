@@ -12,7 +12,7 @@ def find(path='.'):
 			r.append(os.path.join(path, f))
 	return r
 
-setup(name='winebottles', version='0.2.1',
+setup(name='winebottles', version='0.2.2',
 	author='Ryan Marquardt',
 	author_email='ryan.marquardt@gmail.com',
 	description='WineBottles',
