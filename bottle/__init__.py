@@ -144,7 +144,7 @@ class Bottle(object):
 			EXE = WinePath(self.conf_data['EXE'], self.wineprefix).toUnix()
 			args = ['wine', EXE]
 			path = os.path.join(self.winepath, 'wine')
-			if self.conf_data['CHDIR']:
+			if self.conf_data.get('CHDIR', False):
 				cwd = os.path.split(EXE)[0]
 		elif args[0] in self.conf_data and hasattr(self.conf_data[args[0]], '__call__'):
 			#Run a user-defined command
