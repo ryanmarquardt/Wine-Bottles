@@ -18,6 +18,6 @@ setup(name='winebottles', version='0.2.1',
 	description='WineBottles',
 	url='http://orbnauticus.github.org/winebottles',
 	license='Simplified BSD License',
-	scripts=['bottle'] + find('installers'),
+	scripts=['tools/bottle'] + find('installers'),
 	packages=['bottle'],
 )
