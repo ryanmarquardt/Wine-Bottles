@@ -1,3 +1,9 @@
+winebottles (0.2.1) maverick; urgency=low
+
+  * Added config option CHDIR for programs that need to run in their installation directory.
+
+ -- Ryan Marquardt (orbnauticus) <ryan.marquardt@gmail.com>  Thu, 23 Dec 2010 00:22:00 +0900
+
 winebottles (0.2.0) maverick; urgency=low
 
   * Ported script over to Python for more flexibility. 

@@ -12,11 +12,12 @@ def find(path='.'):
 			r.append(os.path.join(path, f))
 	return r
 
-setup(name='winebottles', version='0.2.0',
+setup(name='winebottles', version='0.2.1',
 	author='Ryan Marquardt',
 	author_email='ryan.marquardt@gmail.com',
 	description='WineBottles',
 	url='http://orbnauticus.github.org/winebottles',
 	license='Simplified BSD License',
 	scripts=['bottle'] + find('installers'),
+	packages=['bottle'],
 )
