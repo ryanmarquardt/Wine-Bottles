@@ -1,0 +1,443 @@
+#!/usr/bin/env python
+
+import bottle
+
+import os
+import os.path
+import re
+import subprocess
+import sys
+import tempfile
+import xml.dom.minidom
+
+class UNDEFINED(object): pass
+
+def winepath(windowspath):
+	return '/home/ryan/.bottles/wow/dosdevices/' + windowspath
+
+functions = {
+	'winepath':winepath,
+}
+
+def _walk_validate_node(node, TagName=None, attrs={}):
+	return not TagName or getattr(node,'name','')==TagName
+
+class Node(dict):
+	def __init__(self, name, parent=None, **attributes):
+		self.name = name
+		self.parent = parent
+		dict.__init__(self, attributes)
+		self.children = []
+
+	def __hash__(self):
+		return hash(str(self))
+
+	def add_child(self, child):
+		child.parent = self
+		self.children.append(child)
+
+	def walk(self, TagName=None, attrs={}):
+		if _walk_validate_node(self, TagName, attrs):
+			yield self
+		for child in self.children:
+			if hasattr(child, 'walk'):
+				for descendant in child.walk():
+					if _walk_validate_node(descendant, TagName, attrs):
+						yield descendant
+			else:
+				if _walk_validate_node(child, TagName, attrs):
+					yield child
+
+	def replace(self, new):
+		parent = self.parent
+		i = parent.children.index(self)
+		self.parent = None
+		new.parent = parent
+		parent.children[i] = new
+
+	def remove(self, child):
+		self.children.remove(child)
+		child.parent = None
+
+	def contents(self):
+		return ''.join(map(str,self.children)) if self.children else None
+
+	def __str__(self):
+		if self.children: template = '<{name}{attrib}>{children}</{name}>'
+		else:             template = '<{name}{attrib} />'
+		return template.format(
+			name=self.name,
+			attrib=''.join(' %s="%s"' % i for i in dict.items(self)),
+			children=''.join(map(str,self.children)),
+		)
+	def __repr__(self):
+		return 'Node<%s %s/>' % (self.name, ' '.join('%s="%s"' % i for i in self.items()))
+
+class TextNode(unicode):
+	def __new__(cls, data, parent=None):
+		self = unicode.__new__(cls, data)
+		self.parent = parent
+		self.children = ()
+		self.name = None
+		return self
+
+	def replace(self, new):
+		parent = self.parent
+		i = parent.children.index(self)
+		self.parent = None
+		new.parent = parent
+		parent.children[i] = new
+
+	def remove(self, child):
+		self.children.remove(child)
+		child.parent = None
+
+	def __repr__(self):
+		return '%s<%r>' % (self.__class__.__name__, unicode(self))
+
+class Comment(TextNode):
+	def __nonzero__(self): return False
+	def __str__(self):
+		return '<!--%s-->' % unicode(self)
+
+class CData(TextNode):
+	def __str__(self):
+		return '<![CDATA[%s]]>' % unicode(self)
+
+class Document(Node):
+	def __init__(self, version="1.0"):
+		self.version = version
+		Node.__init__(self, None)
+
+	@property
+	def root(self):
+		return self.children[0]
+	@root.setter
+	def root(self, new):
+		self.children[0] = new
+
+	def __str__(self):
+		return '<?xml version="{version}" ?>\n'.format(version=self.version) + \
+			''.join(map(str,self.children))
+	def __repr__(self):
+		return 'Document'
+
+def migrate(n):
+	name = n.nodeName
+	if name == '#text':
+		N = TextNode(n.data)
+	elif name == '#document':
+		N = Document()
+		for child in n.childNodes:
+			N.add_child(migrate(child))
+	elif name == '#comment':
+		N = Comment(n.data)
+	elif name == '#cdata-section':
+		N = CData(n.data)
+	else:
+		N = Node(name)
+		if n.attributes:
+			for i in range(n.attributes.length):
+				item = n.attributes.item(i)
+				N[item.name] = item.value
+		for child in n.childNodes:
+			if child.nodeName != '#text' or child.data.strip():
+				N.add_child(migrate(child))
+	return N
+
+class DepGraph(set):
+	def __init__(self, *edges):
+		set.__init__(self, edges)
+
+	def add(self, a, b):
+		#a depends on b
+		set.add(self, (a, b))
+
+	def sinks(self):
+		return set(a for a,b in self)
+	def sources(self):
+		return set(b for a,b in self)
+
+	def order(self):
+		edges = self.copy()
+		roots = self.sources().difference(self.sinks())
+		dependers = lambda n:[a for a,b in edges if b==n]
+		while roots: #nodes that depend on nothing
+			root = roots.pop()
+			yield root
+			for child in dependers(root):
+				edges.remove((child, root))
+				if child not in edges.sinks():
+					roots.add(child)
+		if edges:
+			raise Exception('Cycle detected! Remaining edges are %r' % (edges))
+
+class Parser(object):
+	def __init__(self, path):
+		self.doc = migrate(xml.dom.minidom.parse(path))
+		self.root = self.doc.root
+
+	def installation_order(self):
+		deps = DepGraph()
+		nodes = {}
+		root = self.root
+		source_nodes = {}
+		install_node = None
+		#First pass, store references
+		for node in root.walk():
+			nodes[id(node)] = node
+			if node.name == 'source':
+				source_nodes[node['name']] = node
+			elif node.name == 'install':
+				if install_node: raise Exception('Only one install node allowed')
+				install_node = node
+			for child in node.children:
+				deps.add(id(node), id(child))
+		#Second pass, add non-child dependencies
+		for node in root.walk():
+			if node.name == 'value':
+				if 'source' in node:
+					deps.add(id(node), id(source_nodes[node['source']]))
+			elif node.name == 'source':
+				if 'icon' in node:
+					#Icons need to be installed first
+					deps.add(id(node), id(install_node))
+			elif node.name == 'settings':
+				#Don't write settings.xml until installed
+				deps.add(id(node), id(install_node))
+			elif node.name == 'install':
+				#Each install command depends on the last finishing
+				for a,b in enumerate(range(1,len(node.children))):
+					deps.add(id(node.children[b]), id(node.children[a]))
+		for i in deps.order():
+			yield nodes[i]
+
+def fetch(target, url, force_local=''):
+	print 'Pretending to download', url, 'to', target
+
+def Desktop(f=sys.stdout, **kwargs):
+	#lines = ['#!/usr/bin/env xdg-open','']
+	lines = ['[Desktop Entry]']
+	if 'Encoding' not in kwargs:
+		lines.append('Encoding=UTF-8')
+	for k in kwargs:
+		key = k.title()
+		if k.lower() == 'categories':
+			value = kwargs[k] if isinstance(kwargs[k], basestring) else ';'.join(kwargs[k])
+		else:
+			value = kwargs[k]
+		if value is not None:
+			lines.append('='.join((key, value)))
+	if 'Terminal' not in kwargs:
+		lines.append('Terminal=false')
+	if 'Type' not in kwargs:
+		lines.append('Type=Application')
+	lines.append('')
+	return '\n'.join(lines)
+
+def subp(*cmdline, **kwargs):
+	stdin = kwargs.pop('stdin', None)
+	if stdin:
+		return subprocess.Popen(cmdline, stdin=subprocess.PIPE).communicate(stdin)
+	else:
+		return subprocess.Popen(cmdline).communicate()
+
+class Installer(object):
+	def __init__(self, x, which=None,
+			do_create_bottle=False,
+			do_downloads=False,
+			do_install=False,
+			do_settings=False,
+			do_desktops=False):
+		self.parser = Parser(x)
+		self.perms = {
+			'create-bottle': do_create_bottle,
+			'download': do_downloads,
+			'install':  do_install,
+			'settings': do_settings,
+			'desktops': do_desktops,
+		}
+		self.bottle = bottle.Bottle()
+		self.bottle.open(which or self.parser.root['bottle'])
+		#self.bottle_path = os.path.expanduser('~/.bottles/%s' % \
+			#self.parser.root.get('bottle', self.bottle))
+
+	def RUN(self, *cmdline, **kwargs):
+		stdin = kwargs.pop('stdin', None)
+		if self.perms['install']:
+			if cmdline[0] == 'bottle':
+				self.bottle.run(*cmdline[2:])
+			else:
+				subp(*cmdline, stdin=stdin)
+		else:
+			print 'Pretending to run', cmdline, stdin
+
+	def WRITE_INSTALL_HELPER(self, data):
+		if self.perms['install']:
+			raise NotImplementedError
+			tf = tempfile.NamedTemporaryFile()
+			return tf, tf.name
+		else:
+			print 'Pretending to write', len(data), 'bytes'
+			return None,'TEMPFILE-STUB'
+
+	def FETCH(self, local_path, src, force_local=False):
+		if self.perms['download']:
+			if re.match('(http)://.*', src):
+				if not os.path.exists(local_path):
+					subp('wget', src, '-c', '-O', local_path+'.unfinished')
+					os.rename(local_path+'.unfinished', local_path)
+				else:
+					print 'Not downloading: file', local_path, 'exists.'
+			else:
+				raise NotImplementedError
+		else:
+			print 'Pretending to fetch', src, 'to', local_path, force_local
+
+	def CREATE(self):
+		if self.perms['create-bottle']:
+			try:
+				self.bottle.create()
+			except OSError, e:
+				print e
+			try:
+				os.mkdir(os.path.join(self.bottle.wineprefix, 'resources'))
+			except OSError, e:
+				print e
+			if not os.path.exists(os.path.join(self.bottle.wineprefix, 'resources')):
+				raise Exception("Environment couldn't be created")
+		else:
+			print 'Pretending to create bottle', self.bottle.name
+
+	def SETTINGS(self, path, data):
+		if self.perms['settings']:
+			print 'Writing', path
+			open(path, 'w').write(data)
+		else:
+			print 'Pretending to write settings file', path, 'with', len(data), 'bytes'
+
+	def DESKTOP(self, path, data):
+		if self.perms['desktops']:
+			print 'Writing desktop file', path
+			open(path, 'w').write(data)
+		else:
+			print 'Pretending to write desktop file', path, 'with', len(data), 'bytes'
+
+	def run(self):
+		self.CREATE()
+		self.sources = {}
+		for directive in self.parser.installation_order():
+			if directive.name is None:
+				#Ignore textnodes and cdata sections. They are accessed by their parent nodes.
+				pass
+			else:
+				callback = getattr(self, 'on_%s' % directive.name, self.stub)
+				callback(directive)
+
+	def stub(self, directive):
+		raise Exception('Unrecognized directive %r' % directive)
+
+	def on_source(self, source):
+		name, url = source['name'], source.contents().strip()
+		force_local = source.get('force_local','')
+		local_path = os.path.join(self.bottle.wineprefix, 'resources', name)
+		self.FETCH(local_path, url, force_local=force_local)
+		self.sources[name] = local_path
+
+	def on_value(self, value):
+		if 'source' in value:
+			value.replace(TextNode(self.sources[value['source']]))
+		elif 'func' in value:
+			value.replace(TextNode(
+				functions[value['func']](value.contents().strip())))
+
+	def on_key(self, key):
+		if key.parent.name == 'regedit':
+			pass
+		else:
+			self.stub(key)
+
+	def on_install(self, install):
+		#Does nothing, only a reference time in the install process
+		pass
+
+	def on_run(self, run):
+		arg = run.contents().strip()
+		if re.match('.*\.[eE][xX][eE]$', arg):
+			cmd = ['wine', arg]
+		elif re.match('.*\.[mM][sS][iI]$', arg):
+			cmd = ['msiexec', '/i', arg]
+		else:
+			raise Exception("I don't know how to run this: %r" % ((run.name,arg)))
+		self.RUN(*cmd)
+
+	def on_bash(self, bash):
+		self.RUN('bash', stdin=bash.contents())
+
+	def on_regedit(self, regedit):
+		data = 'REGEDIT4'
+		for key in regedit.children:
+			(k,n),d = key['path'].rpartition('\\')[::2], key.contents()
+			data += '\n[%s]\n"%s"="%s"' % (k,n,d)
+		tf, name = self.WRITE_INSTALL_HELPER(data)
+		self.RUN('bottle', self.bottle.name, 'wine', 'regedit.exe', name)
+
+	def on_func(self, func):
+		if func.parent.name == 'settings':
+			#settings.xml parameters are handled in the next block
+			pass
+		else:
+			self.stub(func)
+
+	def on_settings(self, settings):
+		self.SETTINGS(os.path.join(self.bottle.wineprefix, 'settings.xml'), str(self.parser.doc))
+
+	def on_name(self, name):
+		if name.parent.name == 'desktop':
+			pass
+		else:
+			self.stub(name)
+
+	def on_icon(self, icon):
+		if icon.parent.name == 'desktop':
+			pass
+		else:
+			self.stub(icon)
+
+	def on_category(self, category):
+		if category.parent.name == 'desktop':
+			pass
+		else:
+			self.stub(category)
+
+	def on_exec(self, exe):
+		if exe.parent.name == 'desktop':
+			exe.children[0].replace(TextNode('bottle %s %s' % (self.bottle.name, exe.contents().strip())))
+			for child in exe.children[1:]:
+				exe.remove(child)
+		else:
+			self.stub(category)
+
+	def on_desktop(self, desktop):
+		props = dict(
+			(node.name.lower(), node.contents()) \
+			for node in desktop.children \
+			if isinstance(node, Node)
+		)
+		if 'category' in props: del props['category']
+		props['categories'] = 'Application;' + ''.join(c.contents().strip()+';' for c in desktop.children if c.name == 'category')
+		props.setdefault('exec', 'bottle %s' % self.bottle.name)
+		desktop_filename = '-'.join(re.split('[^a-zA-Z0-9]', props['name'].lower()))+'.desktop'
+		#print 'Pretending to write desktop file %s: %i bytes' % (desktop_path, len(Desktop(**props)))
+		self.DESKTOP(os.path.join(self.bottle.wineprefix, desktop_filename), Desktop(**props))
+
+	def on_package(self, package):
+		print 'Finished!'
+
+Installer(sys.argv[1], sys.argv[2],
+ do_create_bottle=True,
+ do_downloads=True,
+ do_install=True,
+ do_settings=True,
+ do_desktops=True,
+).run()

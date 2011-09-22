@@ -2,47 +2,39 @@
 
 from bottle import *
 
-bottle_settings = '''
-def word(*args):
-	args = [windowspath(a) for a in args]
-	run('wine', "C:/Program Files/Microsoft Office/OFFICE11/WINWORD.EXE", *args)
+OFFICEPATH = 'C:/Program Files/Microsoft Office/OFFICE11/'
+WORDPATH = OFFICEPATH + 'WINWORD.EXE'
+EXCELPATH = OFFICEPATH + 'EXCEL.EXE'
+PPOINTPATH = OFFICEPATH + 'POWERPNT.EXE'
 
-def excel(*args):
-	args = [windowspath(a) for a in args]
-	run('wine', "c:/Program Files/Microsoft Office/OFFICE11/EXCEL.EXE", *args)
+@Installer('office', '1.0')
+def install(office):
+	#Perform the installation
+	setup_exe = office.AddInstallSource(cd='Setup.exe', note='Setup.exe on the main CD')
+	office.AddCommand(setup_exe)
 
-def powerpoint(*args):
-	args = [windowspath(a) for a in args]
-	run('wine', "c:/Program Files/Microsoft Office/OFFICE11/POWERPNT.EXE", *args)
-'''
+	#Extract all important icons
+	word_ico = office.AddIco(exe=WORDPATH, name='1')
+	word_doc_ico = office.AddIco(exe=WORDPATH, name='2')
+	excel_ico = office.AddIco(exe=EXCELPATH, name='257')
+	excel_doc_ico = office.AddIco(exe=EXCELPATH, name='258')
+	ppoint_ico = office.AddIco(exe=PPOINTPATH, name='1300')
+	ppoint_doc_ico = office.AddIco(exe=PPOINTPATH, name='1301')
 
-WORDPATH='C:/Program Files/Microsoft Office/OFFICE11/WINWORD.EXE'
-EXCELPATH='C:/Program Files/Microsoft Office/OFFICE11/EXCEL.EXE'
-PPOINTPATH='C:/Program Files/Microsoft Office/OFFICE11/POWERPNT.EXE'
+	#Let's default to launching word
+	office.settings.EXE = WORDPATH
+	office.settings.word = '''run('wine', %r, *[windowspath(a) for a in argv[1:]])''' % WORDPATH
+	office.settings.excel = '''run('wine', %r, *[windowspath(a) for a in argv[1:]])''' % EXCELPATH
+	office.settings.powerpoint = '''run('wine', %r, *[windowspath(a) for a in argv[1:]])''' % PPOINTPATH
 
-office = Installer('office')
-
-office.AddInstallSource('setup.exe', 'Setup.exe on the main CD')
-
-office.settings(bottle_settings)
-office.AddIco('word.ico', exe=WORDPATH, name='1')
-office.AddIco('word-doc.ico', exe=WORDPATH, name='2')
-office.AddIco('excel.ico', exe=EXCELPATH, name='257')
-office.AddIco('excel-doc.ico', exe=EXCELPATH, name='258')
-office.AddIco('ppoint.ico', exe=PPOINTPATH, name='1300')
-office.AddIco('ppoint-doc.ico', exe=PPOINTPATH, name='1301')
-
-office.AddDesktop('Microsoft Word', 'word.ico', 'word',
- categories='Application;Office;')
-office.AddDesktop('Microsoft Word', 'word-doc.ico', 'word %f',
- mimetype='application/msword', nodisplay='true', startupnotify='true')
-office.AddDesktop('Microsoft Excel', 'excel.ico', 'excel',
- categories='Application;Office;')
-office.AddDesktop('Microsoft Excel', 'excel-doc.ico', 'excel %f',
- mimetype='application/vnd.ms-excel', nodisplay='true', startupnotify='true')
-office.AddDesktop('Microsoft Powerpoint', 'ppoint.ico', 'powerpoint',
- categories='Application;Office;')
-office.AddDesktop('Microsoft Powerpoint', 'ppoint-doc.ico', 'powerpoint %f',
- mimetype='application/vnd.ms-powerpoint', nodisplay='true', startupnotify='true')
-	
-office.Go(sys.argv)
+	#Application launchers
+	office.AddDesktop('Microsoft Word', word_ico, exe='word', categories=('Office',))
+	office.AddDesktop('Microsoft Excel', excel_ico, exe='excel', categories=('Office',))
+	office.AddDesktop('Microsoft Powerpoint', ppoint_ico, exe='powerpoint', categories=('Office',))
+	#Support for opening files through a freedesktop.org file browser
+	office.AddDesktop('Microsoft Word', word_doc_ico, exe='word %F', 
+	  mimetype='application/msword', nodisplay=True, startupnotify=True)
+	office.AddDesktop('Microsoft Excel', excel_doc_ico, exe='excel %f',
+	  mimetype='application/vnd.ms-excel', nodisplay=True, startupnotify=True)
+	office.AddDesktop('Microsoft Powerpoint', ppoint_doc_ico, exe='powerpoint %f',
+	  mimetype='application/vnd.ms-powerpoint', nodisplay=True, startupnotify=True)

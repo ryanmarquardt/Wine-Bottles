@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 
 import os
+import platform
 import subprocess
-
 import urllib2
 
 def rexec(path, globals0=None):
@@ -46,16 +46,14 @@ class WorkingDir(object):
 		
 	def __enter__(self):
 		os.chdir(self.newpath)
+		return self.newpath
 		
 	def __exit__(self, exc_type, exc_value, traceback):
 		os.chdir(self.oldpath)
 
 class WinePath(str):
 	def __new__(self, path, prefix=None):
-		if prefix is None:
-			self.prefix = os.path.expanduser('~/.wine')
-		else:
-			self.prefix = prefix
+		self.prefix = prefix or os.path.expanduser('~/.wine') 
 		return str.__new__(self, path)
 	
 	def toUnix(self):
@@ -115,6 +113,7 @@ class Bottle(object):
 		self.confpath = os.path.join(self.wineprefix, 'bottle-settings')
 		g = {
 			'run': self.run,
+			'arch': platform.machine(),
 			'execute': self.execute,
 			'bash': bash,
 			'windowspath': lambda x:WinePath(x, self.wineprefix).toWindows(),

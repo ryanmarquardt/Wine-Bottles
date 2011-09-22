@@ -1,0 +1,36 @@
+<?xml version="1.0" ?>
+<package bottle="wow">
+	<source name="wow-install.exe">
+		http://us.media.battle.net.edgesuite.net/downloads/wow-installers/WoW-4.0.0-WOW-enUS-Installer.exe
+	</source>
+	<source name="wow.svg">
+		http://kde-files.org/CONTENT/content-files/41569-wow-icon-scalable.svg
+	</source>
+	<install>
+		<run><value source="wow-install.exe" /></run>
+	</install>
+	<settings>
+		<func name="" method="wine"><!-- name="" makes this the default -->
+			C:/Program Files/World of Warcraft/Wow.exe
+		</func>
+		<func name="launcher" method="wine">
+			C:/Program Files/World of Warcraft/Launcher.exe
+		</func>
+		<func name="install_addon" method="bash">
+			unzip "$1" -d "<value func="winepath">
+				C:/Program Files/World of Warcraft/Interface/Addons
+			</value>"
+		</func>
+	</settings>
+	<desktop>
+		<name>World of Warcraft</name>
+		<icon><value source="wow.svg" /></icon>
+		<category>Game</category>
+	</desktop>
+	<desktop>
+		<name>World of Warcraft Launcher</name>
+		<icon><value source="wow.svg" /></icon>
+		<category>Game</category>
+		<exec>launcher</exec>
+	</desktop>
+</package>

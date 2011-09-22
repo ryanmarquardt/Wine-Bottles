@@ -1,23 +1,23 @@
 #!/usr/bin/env python
 
-from bottle import *
+from bottle.installer import *
 
-install = 'https://us.battle.net/account/downloads/WoW-4.0.0-WOW-enUS-Installer.exe'
+install = 'http://us.media.battle.net.edgesuite.net/downloads/wow-installers/WoW-4.0.0-WOW-enUS-Installer.exe'
 icon = 'http://kde-files.org/CONTENT/content-files/41569-wow-icon-scalable.svg'
-bottle_settings = '''
-EXE="C:/Program Files/World of Warcraft/Wow.exe"
 
-def install_addon(path):
-	bash('unzip', path, '-d', unixpath('c:/Program Files/World of Warcraft/Interface/AddOns'))
+@Installer(default_bottle='worldofwarcraft', name="World of Warcraft", version='1.0')
+def install(wow):
+	#These things will be downloaded automatically if they're not in the resources folder.
+	#Their return values are paths to the files in question.
+	install_exe = wow.AddInstallSource(url=install, name='Wow-Installer.exe')
+	wow_svg = wow.AddIcon(url=icon)
+	wow.AddCommand(install_exe)
+	#Default executable, run with 'bottle worldofwarcraft'
+	wow.settings.EXE = 'c:/Program Files/World of Warcraft/Wow.exe'
+	#Alternative executables, run with arguments
+	wow.settings.launcher = '''execute('wine', 'C:/Program Files/World of Warcraft/Launcher.exe')'''
+	wow.settings.install_addon = '''bash('unzip', argv[0], '-d', unixpath('c:/Program Files/World of Warcraft/Interface/Addons'))'''
+	wow.AddDesktop('World of Warcraft', wow_svg, categories=('Application','Game'))
+	wow.AddDesktop('World of Warcraft Launcher', wow_svg, exe='launcher', categories=('Application','Game'))
+#When this block exits, the installer is run. No actions have taken place yet.
 
-def launcher():
-	execute('wine', "C:/Program Files/World of Warcraft/Launcher.exe")
-'''
-
-wow = Installer('worldofwarcraft'):
-wow.AddInstallSource('WoW-Installer.exe', url=install)
-wow.AddCommand('WoW-Installer.exe')
-wow.settings(bottle_settings)
-wow.AddIco('wow.png', url=icon)
-wow.AddDesktop('World of Warcraft', 'wow.png', categories='Application;Game;')
-wow.AddDesktop('World of Warcraft Launcher', 'wow.png', exe='launcher', categories='Application;Game;')

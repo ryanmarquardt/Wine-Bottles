@@ -1,0 +1,44 @@
+<?xml version="1.0" ?>
+<package bottle="starcraft">
+	<source name="starcraft.exe" cd="STARCRAFT" force_local="file">setup.exe</source>
+	<source name="broodwar.exe" cd="BROODWAR" force_local="file">setup.exe</source>
+	<source name="starcraft.ico" icon="102">C:/Program Files/Starcraft/Starcraft.exe</source>
+	<install>
+		<run><value source="starcraft.exe" /></run>
+		<bash>mv "<value source="starcraft.exe" />" "<value func="winepath">
+			C:/Program Files/Starcraft/Starcraft.mpq</value>"</bash>
+		<run><value source="broodwar.exe" /></run>
+		<bash>mv "<value source="broodwar.exe" />" "<value func="winepath">
+			C:/Program Files/Starcraft/Broodwar.mpq</value>"</bash>
+		<regedit>
+			<key path="HKEY_CURRENT_USER\Software\Wine\Explorer\Desktop">Default</key>
+			<key path="HKEY_CURRENT_USER\Software\Wine\Explorer\Desktops\Default">800x600</key>
+		</regedit>
+	</install>
+	<settings>
+		<func name="" method="wine">C:/Program Files/Starcraft/StarCraft.exe</func>
+		<func name="update" method="python"><![CDATA[
+import os, re
+avail = open(download('http://ftp.blizzard.com/pub/broodwar/patches/PC/', keep=False).read())
+patches = ['http://ftp.blizzard.com' + match.group(1) for match in re.finditer('<A HREF="(.*?)">', avail) if match.group(1).endswith('.exe')]
+latest = sorted(patches, key=lambda x:x.replace('_','-'))[-1]
+name = os.path.split(latest)[1]
+
+try:
+	print 'Downloading patch', name
+	patch = download(latest, overwrite=False)
+except OSError:
+	if '--force' not in argv or '-f' not in argv:
+		print 'Already at the latest version'
+		exit(0)
+	else:
+		patch = download(latest, dryrun=True)
+run('wine', patch)]]>
+		</func>
+	</settings>
+	<desktop>
+		<name>Starcraft: Brood War</name>
+		<icon><value source="starcraft.ico" /></icon>
+		<category>Game</category>
+	</desktop>
+</package>

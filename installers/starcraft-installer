@@ -1,44 +1,39 @@
 #!/usr/bin/env python
 
-from bottle import *
-import sys
+from bottle.installer import *
 
-bottle_settings = '''
-WINEVERSION='0.9.14'
-EXE="C:/Program Files/Starcraft/StarCraft.exe"
+update = '''import os, re
+avail = open(download('http://ftp.blizzard.com/pub/broodwar/patches/PC/', keep=False).read())
+patches = ['http://ftp.blizzard.com' + match.group(1) for match in re.finditer('<A HREF="(.*?)">', avail) if match.group(1).endswith('.exe')]
+latest = sorted(patches, key=lambda x:x.replace('_','-'))[-1]
+name = os.path.split(latest)[1]
 
-def update():
-	import os
-	import re
-	
-	avail = download('http://ftp.blizzard.com/pub/broodwar/patches/PC/')
-	patches = ['http://ftp.blizzard.com' + match.group(1) for match in re.finditer('<A HREF="(.*?)">', avail) if match.group(1).endswith('.exe')]
-	latest = sorted(patches, key=lambda x:x.replace('_','-'))[-1]
-	name = os.path.split(latest)[1]
-	
-	with WorkingDir(WINEPREFIX):
-		if name not in os.listdir('.'):
-			print 'Getting patch', name
-			download(latest, name)
-			print 'Applying patch'
-			run('wine', name)
-		else:
-			print 'Already at the latest version:', name
+try:
+	print 'Downloading patch', name
+	patch = download(latest, overwrite=False)
+except OSError:
+	if '--force' not in argv or '-f' not in argv:
+		print 'Already at the latest version'
+		exit(0)
+	else:
+		patch = download(latest, dryrun=True)
+run('wine', patch)
 '''
 
-sc = Installer('starcraft')
-sc.settings(bottle_settings)
+@Installer(default_bottle='starcraft', name="Starcraft: Brood War", version='1.0')
+def install(sc):
+	sc.settings.EXE = 'C:/Program Files/Starcraft/StarCraft.exe'
+	sc.settings.WINEVERSION = '0.9.14'
+	sc.settings.update = update
 
-starcraft = sc.AddInstallSource('starcraft-setup.exe', 'Setup.exe from the Starcraft CD')
-broodwar = sc.AddInstallSource('broodwar-setup.exe', 'Setup.exe from the Brood War CD')
+	starcraft = sc.AddInstallSource(cd='setup.exe', name='STARCRAFT', copy_file=True)
+	broodwar = sc.AddInstallSource(cd='setup.exe', name='BROODWAR', copy_file=True)
 
-sc.AddCommand('run', starcraft)
-sc.AddCommand('copy', starcraft, WinePath('c:/Program Files/Starcraft/Starcraft.mpq').toUnix())
-sc.AddCommand('run', broodwar)
-sc.AddCommand('copy', broodwar, WinePath('c:/Program Files/Starcraft/Broodwar.mpq').toUnix())
-sc.AddCommand('run','update')
+	sc.AddCommand(starcraft)
+	sc.AddCommand('move', starcraft, 'c:/Program Files/Starcraft/Starcraft.mpq')
+	sc.AddCommand(broodwar)
+	sc.AddCommand('move', broodwar, 'c:/Program Files/Starcraft/Broodwar.mpq')
+	sc.AddCommand('run','update')
 
-sc.AddIco('starcraft.ico', exe='c:/Program Files/Starcraft/StarCraft.exe', name='102')
-sc.AddDesktop('Starcraft: Brood War', 'starcraft.ico', categories='Application;Game;')
-
-sc.Go(sys.argv)
+	starcraft_ico = sc.AddIcon(exe='c:/Program Files/Starcraft/StarCraft.exe', name='102')
+	sc.AddDesktop('Starcraft: Brood War', starcraft_ico, categories=('Game',))
